@@ -9,6 +9,8 @@ def import_file(file_path):
         # Check the file extension and import accordingly
         if file_extension in ['.xlsx', '.xls']:
             df = pd.read_excel(file_path)
+        elif file_extension == '.parquet':
+            df = pd.read_parquet(file_path)
         elif file_extension == '.csv':
             df = pd.read_csv(file_path, sep=';')
         else:
