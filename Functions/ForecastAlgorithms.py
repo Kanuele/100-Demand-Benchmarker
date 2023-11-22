@@ -1,6 +1,7 @@
 import numpy as np
-from statsmodels.tsa.holtwinters import SimpleExpSmoothing, ExponentialSmoothing
-from sklearn.linear_model import LinearRegression
+import pandas as pd
+#from statsmodels.tsa.holtwinters import SimpleExpSmoothing, ExponentialSmoothing
+#from sklearn.linear_model import LinearRegression
 
 class ForecastAlgorithms:
     def single_exponential_smoothing(self, series, alpha):
@@ -30,3 +31,24 @@ class ForecastAlgorithms:
         model = LinearRegression()
         model.fit(x, y)
         return model.predict(x)
+    
+def moving_average(d, extra_periods=1, n=3):
+
+    # Historical period length
+    cols = len(d)
+    # Append np.nan into the demand array to cover future periods
+    d = np.append(d, [np.nan] * extra_periods)
+    # Define the forecast array
+    f = np.full(cols + extra_periods, np.nan)
+
+    # Create all the t+1 forecast until end of hirostical period
+    for t in range(n, cols):
+        f[t] = np.mean(d[t - n:t])
+
+    # Forecast for all extra periods
+    f[t + 1:] = np.mean(d[t-n+1:t+1])
+
+    # Return DataFrame with the demand, forecast and error
+    df = pd.DataFrame.from_dict({"Demand": d, "Forecast": f, "Error": d - f})
+
+    return df
