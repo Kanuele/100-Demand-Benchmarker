@@ -24,8 +24,7 @@ def aggregate(df): #erweitern durch Auswahl der Attribute, die aggregiert werden
     header = df.columns.values
     header = list(header[header != "demand_quantity"])
     header.remove("Date")
-    header.append("Date")
-    df = (df.groupby([pd.Grouper(key="Date", freq="M"), 'Store_city', 'Store_Country', 'Product Name', 'Product Group', 'Product Family'])
+    df = (df.groupby([pd.Grouper(key="Date", freq="M")] + header) # https://copyprogramming.com/howto/groupby-pandas-throwing-valueerror-grouper-and-axis-must-be-same-length does it help?
         .sum()
         .reset_index("Date")
         .sort_index())
@@ -43,7 +42,8 @@ def combine_attributes(df, date_name = "Date", key_figures = "demand_quantity"):
 
 # fills missing periods with 0 for a series --> need to iterate over all time series
 def fill_with_zeros(df):
-    df.asfreq('M', fill_value=0.0)
+    df = df.asfreq('M', fill_value=0.0)
+    df['combined'] = df.loc[:,'combined'].mask(df['combined'] == 0).ffill()
     df.reset_index(inplace=True)
     return df
 

@@ -12,7 +12,7 @@ def import_file(file_path):
         elif file_extension == '.parquet':
             df = pd.read_parquet(file_path)
         elif file_extension == '.csv':
-            df = pd.read_csv(file_path, sep=';')
+            df = pd.read_csv(file_path, sep=',')
         else:
             print(f"Unsupported file type: {file_extension}")
             return None
