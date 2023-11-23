@@ -9,9 +9,7 @@ import pyarrow.parquet as pq
 import Functions.ImportFunctions as import_functions
 import Functions.ExportResults as export_functions
 import Functions.DemandCleansing as dc
-# from Functions.DemandCleansing import aggregate as dc_aggregate
 import Functions.ForecastAlgorithms as FFA
-# import Functions.DemandCleansing as demand_cleansing
 
 # Import
 
@@ -42,9 +40,7 @@ demand = dc.iterate_combinations(demand)
 demand = dc.split_column(demand, 'combined', ' // ', col_names)
 
 
-
-
-test_df = demand.loc[(demand["Product Name"] == "Fancy Beer Ale 1 pint") & (demand["Store_city"] == "Zapopan")].copy()
+# test_df = demand.loc[(demand["Product Name"] == "Fancy Beer Ale 1 pint") & (demand["Store_city"] == "Zapopan")].copy()
 # test_df = dc.combine_attributes(test_df)
 # test_df_missing_period = test_df.drop([39, 44, 54]) # april 2016, september 2016, july 2017
 # test_df_missing_period = test_df_missing_period.set_index("Date") 
@@ -58,7 +54,7 @@ test_df = demand.loc[(demand["Product Name"] == "Fancy Beer Ale 1 pint") & (dema
 
 # test_df_missing_period = dc.fill_with_zeros(test_df_missing_period)
 
-df_demand = test_df.copy()
+# df_demand = test_df.copy()
 
 demand_pivotted = pd.pivot_table(df_demand, values="demand_quantity", index="Date", columns=col_names, fill_value=0)
 
