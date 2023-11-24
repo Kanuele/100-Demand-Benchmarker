@@ -42,9 +42,9 @@ def combine_attributes(df, date_name = "Date", key_figures = "demand_quantity"):
     return df
 
 # fills missing periods with 0 for a series --> need to iterate over all time series
-def fill_with_zeros(df):
+def fill_with_zeros(df, col_name = "combined"):
     df = df.asfreq('M', fill_value=0.0)
-    df['combined'] = df.loc[:,'combined'].mask(df['combined'] == 0).ffill()
+    df[col_name] = df.loc[:,col_name].mask(df[col_name] == 0).ffill()
     df.reset_index(inplace=True)
     return df
 

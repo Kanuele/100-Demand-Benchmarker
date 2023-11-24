@@ -31,6 +31,13 @@ class ForecastAlgorithms:
         model = LinearRegression()
         model.fit(x, y)
         return model.predict(x)
+
+# Create an empty dataframe
+def create_future_periods(df, periods=24, freq='M'):
+  future = pd.DataFrame()
+  future["ds"] = pd.date_range(start=df["ds"].max()+ pd.DateOffset(months=1), periods=periods, freq=freq)
+  future["ticker"] = df["ticker"]
+  return future
     
 def moving_average(d, extra_periods=1, n=3):
 
@@ -52,3 +59,17 @@ def moving_average(d, extra_periods=1, n=3):
     df = pd.DataFrame.from_dict({"Demand": d, "Forecast": f, "Error": d - f})
 
     return df
+
+def create_forecast(df, model, extra_periods, n): 
+    future = create_future_periods(df, periods=extra_periods, freq='M')
+
+    # append future to df
+    past_future = pd.concat((df, future)).reset_index(drop=True)
+
+    df = df.set_index(["ds"])
+    df_pivotted = pd.pivot_table(df, values="y", index="ds", columns="ticker", fill_value=0)
+
+    forecast = model(df_pivotted, extra_periods, n)
+    past_future["fc"] = forecast["Forecast"]
+    past_future["e"] = forecast["Error"]
+    return past_future
