@@ -93,7 +93,7 @@ def split_column(df, column_name, delimiter, col_names):
 # # Remove outliers
 # Winsorization
 # Corrects also lower data points, which are not outliers
-def outlier_winsorization(df, demand_col, lower_percentile=1, upper_percentile=99):
+def outlier_winsorization(df, demand_col="d", lower_percentile=1, upper_percentile=99):
     limit_high = np.percentile(df[demand_col], upper_percentile)
     limit_low = np.percentile(df[demand_col], lower_percentile)
 
@@ -112,7 +112,7 @@ def outlier_winsorization(df, demand_col, lower_percentile=1, upper_percentile=9
 ## 1. Identify very high errogenous values
 
 
-def outlier_stddev(df, demand_col, std_dev=3):
+def outlier_stddev(df, demand_col="d", std_dev=3):
     mean = df[demand_col].mean()
     std = df[demand_col].std()
     df["demand_corrected"] = np.where(
@@ -124,7 +124,7 @@ def outlier_stddev(df, demand_col, std_dev=3):
     return df
 
 
-def outlier_stdnorm(df, demand_col, lower_percentile=0.01, upper_percentile=0.99):
+def outlier_stdnorm(df, demand_col="d", lower_percentile=0.01, upper_percentile=0.99):
     mean = df[demand_col].mean()
     std = df[demand_col].std()
 
@@ -136,12 +136,12 @@ def outlier_stdnorm(df, demand_col, lower_percentile=0.01, upper_percentile=0.99
     df["demand_corrected"] = np.where(
         df[demand_col] < limit_low, limit_low, df[demand_col]
     )
-    return
+    return df
 
 
 # Stndard deviation of error
 def outlier_error_stddev(
-    df, demand_col, forecast_col, lower_percentile=0.01, upper_percentile=0.99
+    df, demand_col="d", forecast_col="f", lower_percentile=0.01, upper_percentile=0.99
 ):
     df["error"] = df[demand_col] - df[forecast_col]
     mean = df["error"].mean()

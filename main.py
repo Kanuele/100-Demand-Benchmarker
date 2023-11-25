@@ -4,10 +4,10 @@ import pandas as pd
 import pyarrow as pa  # pyarrow to use parquet files
 import pyarrow.parquet as pq
 
-from prophet import Prophet
+# from prophet import Prophet
 from time import time
 
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 
 # import statsmodels.api as sm
 
@@ -44,6 +44,8 @@ demand.set_index(["Date"], inplace=True)
 demand = dc.iterate_combinations(demand)
 # demand = dc.split_column(demand, 'combined', ' // ', col_names)
 
+# ------------ Forecast ------------ ------------ ------------ ------------
+
 # Prepare for forecasting
 demand.columns = ["ds", "d", "ticker"]
 demand_by_ticker = demand.groupby("ticker")
@@ -54,32 +56,38 @@ ticker_list = list(demand_by_ticker.groups.keys())
 # df_forecast = FFA.create_forecast(df_test, model=FFA.moving_average, extra_periods=24, n=5)
 # test
 
+# df = demand.loc[demand["ticker"] == ticker_list[0]]
+# df_forecast = create_forecast(df, FFA.simple_ex_smoothing, extra_periods=24, alpha=3)
+# df_errors = FE.KPI(df_forecast)
+# d = [37, 60, 85, 112, 132, 145, 179, 198, 150, 132]
+# df = FFA.moving_average(d, extra_periods=24, n=3)
+# df["ticker"] = "A"
+# df["model"] = "moving_average"
+# df_errors = FE.KPI(df)
 
-d = [37, 60, 85, 112, 132, 145, 179, 198, 150, 132]
-df = FFA.moving_average(d, extra_periods=24, n=3)
-df["ticker"] = "A"
-df["model"] = "moving_average"
-df_errors = FE.KPI(df)
-
-# FE.KPI nun auf ganze Dataframe anwenden.
-
-
-normalized_bias(df_forecast)
 # ------------- Forecasting ------------ ------------ ------------ ------------
 # Start time
 start_time = time()
 # Create an empty dataframe
 for_loop_forecast = pd.DataFrame()
+for_loop_errors = pd.DataFrame()
 # Loop through each ticker
 for ticker in ticker_list:  # 1.33 seconds
     # Get the data for the ticker
     group = demand_by_ticker.get_group(ticker)
     # Make forecast
-    forecast_moving_average = FFA.create_forecast(
-        group, model=FFA.moving_average, extra_periods=24, n=1
+    df_forecast = FFA.create_forecast(
+        group, FFA.simple_ex_smoothing, extra_periods=24, alpha=0.3
     )
+    df_errors = FE.KPI(df_forecast)
     # Add the forecast results to the dataframe
-    for_loop_forecast = pd.concat((for_loop_forecast, forecast))
+    for_loop_forecast = pd.concat((for_loop_forecast, df_forecast))
+    for_loop_errors = pd.concat((for_loop_errors, df_errors))
+
+    df_forecast = FFA.create_forecast(group, FFA.moving_average, extra_periods=24, n=3)
+    df_errors = FE.KPI(df_forecast)
+    for_loop_forecast = pd.concat((for_loop_forecast, df_forecast))
+    for_loop_errors = pd.concat((for_loop_errors, df_errors))
 
 print("The time used for the for-loop forecast is ", time() - start_time)
 
