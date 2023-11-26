@@ -153,6 +153,47 @@ def simple_ex_smoothing(d, extra_periods=24, alpha=0.3):
     return df
 
 
+def double_ex_smoothing(d, extra_periods=24, alpha=0.3, beta=0.4):
+    """Generate a forecast using the single exponential smoothing method. The forecast for each period is the average of the demand in n previous periods.
+
+    Args:
+        d (_Dataframe_): A time series that contains the historical demand (can be a list or a NumPy array)
+        extra_periods (int, optional): The number or periods we want to forecast into the future. Defaults to 24.
+        alpha (float, optional): The smoothing factor. Best to be between 0.05 and 0.5. Defaults to 0.3.
+        beta (float, optional): The trend smoothing factor. Best to be between 0.05 and 0.5. Defaults to 0.4.
+
+    Returns:
+        _DataFrame_: Returns a dataframe with the historical demand, forecast and error (demand - forecast).
+    """
+
+    # Initialize arrays
+    cols = len(d)
+    d = np.append(d, [np.nan] * extra_periods)
+    f, a, b = np.full((3, cols + extra_periods), np.nan)
+
+    # Initialize first forecast
+    # Should be improved by several methods to be chosen
+    a[0] = d[0]
+    b[0] = d[1] - d[0]
+
+    # Create all the t+1 forecast until end of hirostical period
+    for t in range(1, cols):
+        f[t] = a[t - 1] + b[t - 1]
+        a[t] = alpha * d[t] + (1 - alpha) * (a[t - 1] + b[t - 1])
+        b[t] = beta * (a[t] - a[t - 1]) + (1 - beta) * b[t - 1]
+
+    # Forecast for all extra periods
+    for t in range(cols, cols + extra_periods):
+        # Update the forecast as previous forecast
+        f[t] = a[t - 1] + b[t - 1]
+        a[t] = f[t]
+        b[t] = b[t - 1]
+
+    df = pd.DataFrame.from_dict({"d": d, "f": f, "e": d - f, "level": a, "trend": b})
+
+    return df
+
+
 def create_forecast(df, model, **parameters):
     extra_periods = parameters["extra_periods"]
     future = create_future_periods(df, periods=extra_periods, freq="M")

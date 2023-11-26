@@ -18,7 +18,7 @@ import Functions.ForecastAlgorithms as FFA
 import Functions.ForecastError as FE
 
 # ------------ Import------------ ------------ ------------ ------------
-
+start_time_script = time()
 import_file = import_functions.import_file
 demand_imported = import_file("ExampleData/Forecasting_beer.parquet")
 
@@ -67,7 +67,7 @@ ticker_list = list(demand_by_ticker.groups.keys())
 
 # ------------- Forecasting ------------ ------------ ------------ ------------
 # Start time
-start_time = time()
+start_time_loop = time()
 # Create an empty dataframe
 for_loop_forecast = pd.DataFrame()
 for_loop_errors = pd.DataFrame()
@@ -75,7 +75,14 @@ for_loop_errors = pd.DataFrame()
 for ticker in ticker_list:  # 1.33 seconds
     # Get the data for the ticker
     group = demand_by_ticker.get_group(ticker)
-    # Make forecast
+
+    # Make first forecast
+    df_forecast = FFA.create_forecast(group, FFA.moving_average, extra_periods=24, n=3)
+    df_errors = FE.KPI(df_forecast)
+    for_loop_forecast = pd.concat((for_loop_forecast, df_forecast))
+    for_loop_errors = pd.concat((for_loop_errors, df_errors))
+
+    # second forecast
     df_forecast = FFA.create_forecast(
         group, FFA.simple_ex_smoothing, extra_periods=24, alpha=0.3
     )
@@ -84,25 +91,38 @@ for ticker in ticker_list:  # 1.33 seconds
     for_loop_forecast = pd.concat((for_loop_forecast, df_forecast))
     for_loop_errors = pd.concat((for_loop_errors, df_errors))
 
-    df_forecast = FFA.create_forecast(group, FFA.moving_average, extra_periods=24, n=3)
+    # Third forecast
+    df_forecast = FFA.create_forecast(
+        group, FFA.double_ex_smoothing, extra_periods=24, alpha=0.3, beta=0.4
+    )
     df_errors = FE.KPI(df_forecast)
+    # Add the forecast results to the dataframe
     for_loop_forecast = pd.concat((for_loop_forecast, df_forecast))
     for_loop_errors = pd.concat((for_loop_errors, df_errors))
 
-print("The time used for the for-loop forecast is ", time() - start_time)
+print("The time used for the for-loop forecast is ", time() - start_time_loop)
 
 # Take a look at the data
+demand.info()
+demand.loc[demand["ticker"] == ticker]
+for_loop_forecast.loc[for_loop_forecast["ticker"] == ticker]["d"].info()
+for_loop_forecast.info()
 for_loop_forecast.head()
 for_loop_forecast.tail()
+
+for_loop_errors.loc[for_loop_errors["ticker"] == ticker].iloc[
+    for_loop_errors.loc[for_loop_errors["ticker"] == ticker]["MAE_rel"].argmin()
+]
 
 
 # ------------ Try out area
 
-for_loop_forecast = dc.split_column(for_loop_forecast, "ticker", " // ", col_names)
+# for_loop_forecast = dc.split_column(for_loop_forecast, "ticker", " // ", col_names)
 # add dates to the empty dataframe
 
 
 # ----- Export
-demand_filtered.to_csv("ExampleData/Forecasting_beer_filtered.csv")
 
 for_loop_forecast.to_csv("ExampleData/Forecasting_beer_forecast.csv")
+for_loop_errors.to_csv("ExampleData/Forecasting_beer_errors.csv")
+print("The time used for the script is ", time() - start_time_script)
