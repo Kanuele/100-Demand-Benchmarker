@@ -16,6 +16,7 @@ import Functions.ExportResults as export_functions
 import Functions.DemandCleansing as dc
 import Functions.ForecastAlgorithms as FFA
 import Functions.ForecastError as FE
+import Functions.ForecastOptimizer as FO
 
 # ------------ Import------------ ------------ ------------ ------------
 start_time_script = time()
@@ -55,64 +56,99 @@ ticker_list = list(demand_by_ticker.groups.keys())
 # df_test = demand[demand["ticker"] == ticker_list[0]]
 # df_forecast = FFA.create_forecast(df_test, model=FFA.moving_average, extra_periods=24, n=5)
 # test
+# test_df = demand.loc[demand["ticker"] == ticker_list[0]]
+# test_df = pd.pivot_table(
+#     test_df,
+#     values="d",
+#     index="ds",
+#     columns="ticker",
+#     fill_value=0,
+# )
 
-# df = demand.loc[demand["ticker"] == ticker_list[0]]
-# df_forecast = create_forecast(df, FFA.simple_ex_smoothing, extra_periods=24, alpha=3)
-# df_errors = FE.KPI(df_forecast)
-# d = [37, 60, 85, 112, 132, 145, 179, 198, 150, 132]
-# df = FFA.moving_average(d, extra_periods=24, n=3)
-# df["ticker"] = "A"
-# df["model"] = "moving_average"
-# df_errors = FE.KPI(df)
+# test_opti = FO.return_optimal_forecast(test_df, extra_periods=24, measure="MAE_abs")
 
 # ------------- Forecasting ------------ ------------ ------------ ------------
 # Start time
 start_time_loop = time()
-# Create an empty dataframe
-for_loop_forecast = pd.DataFrame()
-for_loop_errors = pd.DataFrame()
-# Loop through each ticker
-for ticker in ticker_list:  # 1.33 seconds
-    # Get the data for the ticker
-    group = demand_by_ticker.get_group(ticker)
 
-    # Make first forecast
-    df_forecast = FFA.create_forecast(group, FFA.moving_average, extra_periods=24, n=3)
-    df_errors = FE.KPI(df_forecast)
-    for_loop_forecast = pd.concat((for_loop_forecast, df_forecast))
-    for_loop_errors = pd.concat((for_loop_errors, df_errors))
+# Simple Moving Average
 
-    # second forecast
-    df_forecast = FFA.create_forecast(
-        group, FFA.simple_ex_smoothing, extra_periods=24, alpha=0.3
+df_moving_averages = [
+    FFA.create_forecast(
+        demand_by_ticker.get_group(ticker), FFA.moving_average, extra_periods=24, n=3
     )
-    df_errors = FE.KPI(df_forecast)
-    # Add the forecast results to the dataframe
-    for_loop_forecast = pd.concat((for_loop_forecast, df_forecast))
-    for_loop_errors = pd.concat((for_loop_errors, df_errors))
-
-    # Third forecast
-    df_forecast = FFA.create_forecast(
-        group, FFA.double_ex_smoothing, extra_periods=24, alpha=0.3, beta=0.4
-    )
-    df_errors = FE.KPI(df_forecast)
-    # Add the forecast results to the dataframe
-    for_loop_forecast = pd.concat((for_loop_forecast, df_forecast))
-    for_loop_errors = pd.concat((for_loop_errors, df_errors))
-
-print("The time used for the for-loop forecast is ", time() - start_time_loop)
-
-# Take a look at the data
-demand.info()
-demand.loc[demand["ticker"] == ticker]
-for_loop_forecast.loc[for_loop_forecast["ticker"] == ticker]["d"].info()
-for_loop_forecast.info()
-for_loop_forecast.head()
-for_loop_forecast.tail()
-
-for_loop_errors.loc[for_loop_errors["ticker"] == ticker].iloc[
-    for_loop_errors.loc[for_loop_errors["ticker"] == ticker]["MAE_rel"].argmin()
+    for ticker in ticker_list
 ]
+df_errors_moving_averages = pd.DataFrame(
+    [
+        {"ticker": df.loc[:, "ticker"][1], "model": "moving average", **FE.KPI(df)}
+        for df in df_moving_averages
+    ]
+)
+
+df_simple_ex_smoothing = [
+    FFA.create_forecast(
+        demand_by_ticker.get_group(ticker),
+        FFA.simple_ex_smoothing,
+        extra_periods=24,
+        alpha=0.3,
+    )
+    for ticker in ticker_list
+]
+
+df_errors_simple_ex_smoothing = pd.DataFrame(
+    [
+        {"ticker": df.loc[:, "ticker"][1], "model": "simple_ex_smoothing", **FE.KPI(df)}
+        for df in df_simple_ex_smoothing
+    ]
+)
+
+df_double_ex_smoothing = [
+    FFA.create_forecast(
+        demand_by_ticker.get_group(ticker),
+        FFA.double_ex_smoothing,
+        extra_periods=24,
+        alpha=0.3,
+        beta=0.4,
+    )
+    for ticker in ticker_list
+]
+
+df_errors_double_ex_smoothing = pd.DataFrame(
+    [
+        {"ticker": df.loc[:, "ticker"][1], "model": "double_ex_smoothing", **FE.KPI(df)}
+        for df in df_double_ex_smoothing
+    ]
+)
+
+
+forecasts = pd.concat(
+    df_moving_averages + df_simple_ex_smoothing + df_double_ex_smoothing
+)
+
+errors = pd.concat(
+    [
+        df_errors_moving_averages,
+        df_errors_simple_ex_smoothing,
+        df_errors_double_ex_smoothing,
+    ]
+)
+
+print(
+    "The time used for the for-loop forecast is ", time() - start_time_loop
+)  # 3,88 seconds using list comprehension # 4,39 seconds using list comprehension for fc and errors
+
+start_time_loop = time()
+optimals = [
+    FO.return_optimal_forecast(
+        demand_by_ticker.get_group(ticker), extra_periods=24, measure="MAE_abs"
+    )
+    for ticker in ticker_list
+]
+optimal_forecast = pd.concat(optimals)
+
+optimal_forecast["model"].unique()
+print("The time used for the list comprehension optimals is ", time() - start_time_loop)
 
 
 # ------------ Try out area
