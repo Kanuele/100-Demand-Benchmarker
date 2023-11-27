@@ -19,7 +19,6 @@ import Functions.ForecastError as FE
 import Functions.ForecastOptimizer as FO
 
 # ------------ Import------------ ------------ ------------ ------------
-start_time_script = time()
 import_file = import_functions.import_file
 demand_imported = import_file("ExampleData/Forecasting_beer.parquet")
 
@@ -110,6 +109,7 @@ df_double_ex_smoothing = [
         extra_periods=24,
         alpha=0.3,
         beta=0.4,
+        phi=0.97,
     )
     for ticker in ticker_list
 ]
@@ -124,7 +124,7 @@ df_errors_double_ex_smoothing = pd.DataFrame(
 
 forecasts = pd.concat(
     df_moving_averages + df_simple_ex_smoothing + df_double_ex_smoothing
-)
+).reset_index(drop=True)
 
 errors = pd.concat(
     [
@@ -132,23 +132,23 @@ errors = pd.concat(
         df_errors_simple_ex_smoothing,
         df_errors_double_ex_smoothing,
     ]
-)
+).reset_index(drop=True)
 
 print(
     "The time used for the for-loop forecast is ", time() - start_time_loop
 )  # 3,88 seconds using list comprehension # 4,39 seconds using list comprehension for fc and errors
 
-start_time_loop = time()
-optimals = [
-    FO.return_optimal_forecast(
-        demand_by_ticker.get_group(ticker), extra_periods=24, measure="MAE_abs"
-    )
-    for ticker in ticker_list
-]
-optimal_forecast = pd.concat(optimals)
+# start_time_loop = time()
+# optimals = [
+#     FO.return_optimal_forecast(
+#         demand_by_ticker.get_group(ticker), extra_periods=24, measure="MAE_abs"
+#     )
+#     for ticker in ticker_list
+# ]
+# optimal_forecast = pd.concat(optimals)
 
-optimal_forecast["model"].unique()
-print("The time used for the list comprehension optimals is ", time() - start_time_loop)
+# optimal_forecast["model"].unique()
+# print("The time used for the list comprehension optimals is ", time() - start_time_loop)
 
 
 # ------------ Try out area
@@ -159,6 +159,6 @@ print("The time used for the list comprehension optimals is ", time() - start_ti
 
 # ----- Export
 
-for_loop_forecast.to_csv("ExampleData/Forecasting_beer_forecast.csv")
-for_loop_errors.to_csv("ExampleData/Forecasting_beer_errors.csv")
-print("The time used for the script is ", time() - start_time_script)
+# for_loop_forecast.to_csv("ExampleData/Forecasting_beer_forecast.csv")
+# for_loop_errors.to_csv("ExampleData/Forecasting_beer_errors.csv")
+# print("The time used for the script is ", time() - start_time_script)

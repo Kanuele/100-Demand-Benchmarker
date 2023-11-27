@@ -153,7 +153,7 @@ def simple_ex_smoothing(d, extra_periods=24, alpha=0.3):
     return df
 
 
-def double_ex_smoothing(d, extra_periods=24, alpha=0.3, beta=0.4):
+def double_ex_smoothing(d, extra_periods=24, alpha=0.3, beta=0.4, phi=0.97):
     """Generate a forecast using the single exponential smoothing method. The forecast for each period is the average of the demand in n previous periods.
 
     Args:
@@ -179,15 +179,15 @@ def double_ex_smoothing(d, extra_periods=24, alpha=0.3, beta=0.4):
     # Create all the t+1 forecast until end of hirostical period
     for t in range(1, cols):
         f[t] = a[t - 1] + b[t - 1]
-        a[t] = alpha * d[t] + (1 - alpha) * (a[t - 1] + b[t - 1])
-        b[t] = beta * (a[t] - a[t - 1]) + (1 - beta) * b[t - 1]
+        a[t] = alpha * d[t] + (1 - alpha) * (a[t - 1] + phi * b[t - 1])
+        b[t] = beta * (a[t] - a[t - 1]) + (1 - beta) * phi * b[t - 1]
 
     # Forecast for all extra periods
     for t in range(cols, cols + extra_periods):
         # Update the forecast as previous forecast
-        f[t] = a[t - 1] + b[t - 1]
+        f[t] = a[t - 1] + phi * b[t - 1]
         a[t] = f[t]
-        b[t] = b[t - 1]
+        b[t] = phi * b[t - 1]
 
     df = pd.DataFrame.from_dict({"d": d, "f": f, "e": d - f, "level": a, "trend": b})
 
