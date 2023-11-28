@@ -178,7 +178,7 @@ def double_ex_smoothing(d, extra_periods=24, alpha=0.3, beta=0.4, phi=0.97):
 
     # Create all the t+1 forecast until end of hirostical period
     for t in range(1, cols):
-        f[t] = a[t - 1] + b[t - 1]
+        f[t] = a[t - 1] + phi * b[t - 1]
         a[t] = alpha * d[t] + (1 - alpha) * (a[t - 1] + phi * b[t - 1])
         b[t] = beta * (a[t] - a[t - 1]) + (1 - beta) * phi * b[t - 1]
 
@@ -190,6 +190,78 @@ def double_ex_smoothing(d, extra_periods=24, alpha=0.3, beta=0.4, phi=0.97):
         b[t] = phi * b[t - 1]
 
     df = pd.DataFrame.from_dict({"d": d, "f": f, "e": d - f, "level": a, "trend": b})
+
+    return df
+
+
+def initialize_seasonal_factors_mul(s, d, slen, cols):
+    """_summary_
+
+    Args:
+        s (_type_): _description_
+        d (_type_): _description_
+        slen (_type_): _description_
+        cols (_type_): _description_
+
+    Returns:
+        _type_: _description_
+    """
+    for i in range(slen):
+        s[i] = np.mean(d[i:cols:slen])  # Season average
+    s /= np.mean(s[:slen])  # Scale all seasonal indices by dividing by their mean
+    return s
+
+
+def triple_ex_smoothing_mul(
+    d, extra_periods=1, alpha=0.4, beta=0.4, gamma=0.3, phi=0.9, slen=12
+):
+    """_summary_
+
+    Args:
+        d (_type_): _description_
+        extra_periods (int, optional): _description_. Defaults to 24.
+        alpha (float, optional): _description_. Defaults to 0.4.
+        beta (float, optional): _description_. Defaults to 0.4.
+        gamma (float, optional): _description_. Defaults to 0.3.
+        phi (float, optional): _description_. Defaults to 0.97.
+        slen (int, optional): _description_. Defaults to 12.
+    """
+
+    cols = len(d)
+    d = np.append(d, [np.nan] * extra_periods)
+
+    # component initialization
+    f, a, b, s = np.full((4, cols + extra_periods), np.nan)
+    s = initialize_seasonal_factors_mul(s, d, slen, cols)
+
+    a[0] = d[0] / s[0]
+    b[0] = d[1] / s[1] - d[0] / s[0]
+
+    # Create the forecast for the first season
+
+    for t in range(1, slen):
+        f[t] = (a[t - 1] + phi * b[t - 1]) * s[t - 1]
+
+        a[t] = alpha * d[t] / s[t] + (1 - alpha) * (a[t - 1] + phi * b[t - 1])
+
+        b[t] = beta * (a[t] - a[t - 1]) + (1 - beta) * phi * b[t - 1]
+    # create all the t+1 forecast until end of historical period
+    for t in range(slen, cols):
+        f[t] = (a[t - 1] + phi * b[t - 1]) * s[t - slen]
+        a[t] = alpha * d[t] / s[t - slen] + (1 - alpha) * (a[t - 1] + phi * b[t - 1])
+        b[t] = beta * (a[t] - a[t - 1]) + (1 - beta) * phi * b[t - 1]
+        s[t] = gamma * d[t] / a[t] + (1 - gamma) * s[t - slen]
+
+    # Forecast for all extra periods
+    for t in range(cols, cols + extra_periods):
+        f[t] = (a[t - 1] + phi * b[t - 1]) * s[t - slen]
+        a[t] = f[t] / s[t - slen]
+        b[t] = phi * b[t - 1]
+        s[t] = s[t - slen]
+
+    df = pd.DataFrame.from_dict(
+        {"d": d, "f": f, "e": d - f, "level": a, "trend": b, "season": s}
+    )
 
     return df
 
@@ -210,3 +282,10 @@ def create_forecast(df, model, **parameters):
     past_future["e"] = forecast["e"]
     past_future["model"] = model.__name__
     return past_future
+
+
+d = [14, 10, 6, 2, 18, 8, 4, 1, 16, 9, 5, 3, 18, 11, 4, 2, 17, 9, 5, 1]
+df = triple_ex_smoothing_mul(
+    d, slen=12, extra_periods=4, alpha=0.3, beta=0.2, gamma=0.2, phi=0.9
+)
+KPI(df)
