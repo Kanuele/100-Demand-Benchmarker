@@ -88,6 +88,17 @@ def naive(d, extra_periods=24, n=1):
     return df
 
 
+def naiveSeasonal(d, extra_periods=24, n=1, slen=12):
+    """Naive forecasting algorithm to predict the last period into the future
+
+    Args:
+        df (_type_): _description_
+        extra_periods (int, optional): Number of forecast periods into the future. Defaults to 24.
+        n (int, optional): _description_. Defaults to 1.
+    """
+    return print("Not implemented yet")
+
+
 def moving_average(d, extra_periods=24, n=3):
     """Generate a forecast using the moving average method. The forecast for each period is the average of the demand in n previous periods.
 
@@ -207,8 +218,11 @@ def initialize_seasonal_factors_mul(s, d, slen, cols):
         _type_: _description_
     """
     for i in range(slen):
-        s[i] = np.mean(d[i:cols:slen])  # Season average
-    s /= np.mean(s[:slen])  # Scale all seasonal indices by dividing by their mean
+        idx = [
+            x for x in range(cols) if x % slen == i
+        ]  # Indices that correspond to this season
+        s[i] = np.mean(d[idx])  # Season average
+    s /= np.mean(s[:slen])  # Scale all season factors (sum of factors = slen)
     return s
 
 
@@ -238,14 +252,12 @@ def triple_ex_smoothing_mul(
     b[0] = d[1] / s[1] - d[0] / s[0]
 
     # Create the forecast for the first season
-
     for t in range(1, slen):
-        f[t] = (a[t - 1] + phi * b[t - 1]) * s[t - 1]
-
+        f[t] = (a[t - 1] + phi * b[t - 1]) * s[t]
         a[t] = alpha * d[t] / s[t] + (1 - alpha) * (a[t - 1] + phi * b[t - 1])
-
         b[t] = beta * (a[t] - a[t - 1]) + (1 - beta) * phi * b[t - 1]
-    # create all the t+1 forecast until end of historical period
+
+    # Create all the t+1 forecast
     for t in range(slen, cols):
         f[t] = (a[t - 1] + phi * b[t - 1]) * s[t - slen]
         a[t] = alpha * d[t] / s[t - slen] + (1 - alpha) * (a[t - 1] + phi * b[t - 1])
@@ -284,8 +296,8 @@ def create_forecast(df, model, **parameters):
     return past_future
 
 
-d = [14, 10, 6, 2, 18, 8, 4, 1, 16, 9, 5, 3, 18, 11, 4, 2, 17, 9, 5, 1]
-df = triple_ex_smoothing_mul(
-    d, slen=12, extra_periods=4, alpha=0.3, beta=0.2, gamma=0.2, phi=0.9
-)
-KPI(df)
+# d = [14, 10, 6, 2, 18, 8, 4, 1, 16, 9, 5, 3, 18, 11, 4, 2, 17, 9, 5, 1]
+# df = triple_ex_smoothing_mul(
+#     d, slen=12, extra_periods=4, alpha=0.3, beta=0.2, gamma=0.2, phi=0.9
+# )
+# KPI(df)

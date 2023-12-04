@@ -30,12 +30,13 @@ col_names = list(col_names - values)
 
 demand = demand_imported.copy()
 
+
 # ------------ Cleanse ------------ ------------ ------------ ------------
 
 ## Aggregate to month level
 demand = dc.aggregate(demand)
 
-demand = demand.reset_index()
+demand = demand.copy().reset_index()
 
 ## Fill missing periods
 
@@ -43,6 +44,8 @@ demand = dc.combine_attributes(demand)
 demand.set_index(["Date"], inplace=True)
 demand = dc.iterate_combinations(demand)
 # demand = dc.split_column(demand, 'combined', ' // ', col_names)
+# Split demand_aggregated to train and test
+
 
 # ------------ Forecast ------------ ------------ ------------ ------------
 
@@ -50,6 +53,58 @@ demand = dc.iterate_combinations(demand)
 demand.columns = ["ds", "d", "ticker"]
 demand_by_ticker = demand.groupby("ticker")
 ticker_list = list(demand_by_ticker.groups.keys())
+
+
+# Split groups into train and test dataset
+
+test_size = 12
+test = pd.concat(
+    [demand_by_ticker.get_group(ticker).iloc[-test_size:] for ticker in ticker_list],
+    axis=0,
+    ignore_index=True,
+)
+train = pd.concat(
+    [demand_by_ticker.get_group(ticker).iloc[:-test_size] for ticker in ticker_list],
+    axis=0,
+    ignore_index=True,
+)
+train_by_ticker, test_by_ticker = train.groupby("ticker"), test.groupby("ticker")
+train_ticker_list, test_ticker_list = list(train_by_ticker.groups.keys()), list(
+    test_by_ticker.groups.keys()
+)
+
+# Optimize get optimal parameters for each ticker
+optim_ex_post = pd.concat(
+    [
+        FO.return_optimal_forecast(
+            train_by_ticker.get_group(ticker), extra_periods=24, measure="MAE_abs"
+        )
+        for ticker in train_ticker_list
+    ],
+    axis=0,
+    ignore_index=True,
+)
+
+
+opti_by_ticker = optim_ex_post.groupby(["ticker"])
+opti_ticker_list = list(opti_by_ticker.groups.keys())
+
+header = [
+    i
+    for i in optim_ex_post.columns
+    if i not in ["d", "e", "f", "ds", "level", "trend", "season", "ds"]
+]
+
+optim_parameters_dict = pd.concat(
+    [
+        opti_by_ticker.get_group(ticker).reset_index().loc[0, header]
+        for ticker in opti_ticker_list
+    ],
+    axis=1,
+    ignore_index=True,
+).T
+
+# ---- Forecast Test using parameters from optimization ----
 
 
 # df_test = demand[demand["ticker"] == ticker_list[0]]
