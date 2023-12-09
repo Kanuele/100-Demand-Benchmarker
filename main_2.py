@@ -81,10 +81,6 @@ train_ticker_list, test_ticker_list = list(train_by_ticker.groups.keys()), list(
 )
 
 # Optimize get optimal parameters for each ticker
-n_timeseries = len(train_ticker_list)
-data_points = len(train)
-print("Optimize get optimal parameters for each combination")
-start_time = time()
 optim_ex_post = pd.concat(
     [
         FO.return_optimal_forecast(
@@ -96,10 +92,6 @@ optim_ex_post = pd.concat(
     ignore_index=True,
 )
 
-end_time = time() - start_time
-print(
-    f"Optimization time on training set: {end_time} s for {n_timeseries} timeseries and {data_points} data points"
-)
 
 opti_by_ticker = optim_ex_post.groupby(["ticker"])
 opti_ticker_list = list(opti_by_ticker.groups.keys())
@@ -150,10 +142,7 @@ optim_tests = pd.concat(optim_tests).reset_index(drop=True)
 
 
 # Run forecast using optimal parameters
-n_timeseries_df = len(ticker_list)
-data_points_df = len(demand)
-print("Run forecast using optimal parameters")
-start_time = time()
+
 optim = [
     FFA.create_forecast(
         demand_by_ticker.get_group(ticker),
@@ -176,16 +165,10 @@ optim_errors = pd.DataFrame(
     ]
 )
 optim = pd.concat(optim).reset_index(drop=True)
-end_time = time() - start_time
-print(
-    f"Best-fit time on whole dataset: {end_time} s for {n_timeseries_df} timeseries and {data_points_df} data points"
-)
-# how to validate, that the optimal_ex_post is also best for test?
-optim.head()
-optim_errors.head()
 
-optim_parameters_dict.iloc[1]
-optim_errors.iloc[1]
+# how to validate, that the optimal_ex_post is also best for test?
+
+
 # ------------ Try out area
 
 # for_loop_forecast = dc.split_column(for_loop_forecast, "ticker", " // ", col_names)
