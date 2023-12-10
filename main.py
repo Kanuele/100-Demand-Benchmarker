@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-# import polars as pl
+import polars as pl
 
 import pyarrow as pa  # pyarrow to use parquet files
 import pyarrow.parquet as pq
@@ -35,8 +35,23 @@ demand = demand_imported.copy()
 
 # ------------ Cleanse ------------ ------------ ------------ ------------
 
-## Aggregate to month level
-demand = dc.aggregate(demand)
+## Aggregate to month level in polars
+
+
+def aggregate_polars(df):
+    header = df.columns
+    header = [i for i in header if i not in ["demand_quantity"]]
+    df = df.group_by(header).agg(pl.col("demand_quantity").sum())
+    return df
+
+
+df = demand_imported.copy()
+df = pl.DataFrame(df)
+df = aggregate_polars(df)
+
+
+# demand = dc.aggregate(demand)
+
 
 demand = demand.copy().reset_index()
 
