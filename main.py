@@ -22,47 +22,42 @@ import Functions.ForecastOptimizer as FO
 
 # ------------ Import------------ ------------ ------------ ------------
 import_file = import_functions.import_file
-demand_imported = import_file("ExampleData/Forecasting_beer.parquet")
+print("Using polars")
+start_time = time()
+# demand_imported = import_file("ExampleData/Forecasting_beer.parquet")
+demand_imported = pl.read_parquet("ExampleData/Forecasting_beer.parquet")
 
 # ------------ Take Colnames
-
-col_names = set(list(demand_imported.columns))
 values = set(["Date", "demand_quantity"])
-col_names = list(col_names - values)
+col_names = list(set(list(demand_imported.columns)) - values)
 
-demand = demand_imported.copy()
+
+# demand = demand_imported.copy()
+df = demand_imported.clone().rename({"demand_quantity": "d", "Date": "ds"})
 
 
 # ------------ Cleanse ------------ ------------ ------------ ------------
 
 ## Aggregate to month level in polars
-
-
-def aggregate_polars(df):
-    header = df.columns
-    header = [i for i in header if i not in ["demand_quantity"]]
-    df = df.group_by(header).agg(pl.col("demand_quantity").sum())
-    return df
-
-
-df = demand_imported.copy()
-df = pl.DataFrame(df)
-df = aggregate_polars(df)
-
-
-# demand = dc.aggregate(demand)
-
-
-demand = demand.copy().reset_index()
-
 ## Fill missing periods
 
-demand = dc.combine_attributes(demand)
-demand.set_index(["Date"], inplace=True)
-demand = dc.iterate_combinations(demand)
+df = (
+    df.pipe(dc.aggregate_polars)
+    .pipe(dc.combine_attributes_polars)
+    .set_sorted("ds")
+    .upsample(time_column="ds", every="1mo", by="ticker")
+)
+
+df_pd = (
+    df.to_pandas()
+)  # hat fortlaufenden index, nicht wie bei Pandas und hat monats anfang als datum
+# df_pd.loc[df_pd["ticker"] == ticker_list[1]]
+# demand.loc[demand["ticker"] == ticker_list[1]]
+
 # demand = dc.split_column(demand, 'combined', ' // ', col_names)
 # Split demand_aggregated to train and test
-
+end_time = time() - start_time
+print(f"Polars used: {end_time} s ")
 
 # ------------ Forecast ------------ ------------ ------------ ------------
 models_map = {
@@ -72,8 +67,8 @@ models_map = {
 }
 
 # Prepare for forecasting
-demand.columns = ["ds", "d", "ticker"]
-demand_by_ticker = demand.groupby("ticker")
+# demand.columns = ["ds", "d", "ticker"]
+demand_by_ticker = df_pd.groupby("ticker")
 ticker_list = list(demand_by_ticker.groups.keys())
 
 

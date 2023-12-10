@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 from scipy.stats import norm
+import polars as pl
 
 # Group times series to month level
 # def aggregate_to_month(df):
@@ -20,38 +21,60 @@ from scipy.stats import norm
 #     df = df.groupby(header).agg({"demand_quantity": "sum"})#.reset_index()
 #     return df
 
+""" deprecated with aggregate_polars"""
+
 
 def aggregate(
     df,
 ):  # erweitern durch Auswahl der Attribute, die aggregiert werden sollen
-    df["Date"] = pd.to_datetime(df["Date"])
+    df["ds"] = pd.to_datetime(df["ds"])
     header = df.columns.values
-    header = list(header[header != "demand_quantity"])
-    header.remove("Date")
+    header = list(header[header != "d"])
+    header.remove("ds")
     df = (
         df.groupby(
-            [pd.Grouper(key="Date", freq="M")] + header
+            [pd.Grouper(key="ds", freq="M")] + header
         )  # https://copyprogramming.com/howto/groupby-pandas-throwing-valueerror-grouper-and-axis-must-be-same-length does it help?
         .sum()
-        .reset_index("Date")
+        .reset_index("ds")
         .sort_index()
     )
     return df
 
 
 # Combine all attributes
-def combine_attributes(df, date_name="Date", key_figures="demand_quantity"):
+def combine_attributes(df, date_name="ds", key_figures="d"):
     col_names = set(list(df.columns))
     values = set([date_name, key_figures])
     col_names = list(col_names - values)
 
-    df["combined"] = pd.Series(df[col_names].values.tolist()).str.join(" // ")
+    df["ticker"] = pd.Series(df[col_names].values.tolist()).str.join(" // ")
     df = df.drop(col_names, axis=1)
     return df
 
 
+""""""
+
+
+def aggregate_polars(df):
+    header = df.columns
+    header = [i for i in header if i not in ["d", "ds"]]
+    df = df.group_by_dynamic("ds", every="1mo", by=header).agg(pl.col("d").sum())
+    return df
+
+
+def combine_attributes_polars(df, date_name="ds", key_figures="d"):
+    values = set([date_name, key_figures])
+    col_names = list(set(list(df.columns)) - values)
+
+    df = df.with_columns(
+        pl.concat_str(col_names, separator=" // ").alias("ticker")
+    ).drop(col_names)
+    return df
+
+
 # fills missing periods with 0 for a series --> need to iterate over all time series
-def fill_with_zeros(df, col_name="combined"):
+def fill_with_zeros(df, col_name="ticker"):
     df = df.asfreq("M", fill_value=0.0)
     df[col_name] = df.loc[:, col_name].mask(df[col_name] == 0).ffill()
     df.reset_index(inplace=True)
@@ -60,11 +83,11 @@ def fill_with_zeros(df, col_name="combined"):
 
 # # Fill missing periods
 def iterate_combinations(df):
-    combinations = df["combined"].unique()
+    combinations = df["ticker"].unique()
     new_df = pd.DataFrame()
 
     for combination in combinations:
-        subset = df.loc[df["combined"] == combination]
+        subset = df.loc[df["ticker"] == combination]
         subset = fill_with_zeros(subset)
         new_df = pd.concat([new_df, subset])
 

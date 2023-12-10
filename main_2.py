@@ -21,6 +21,8 @@ import Functions.ForecastError as FE
 import Functions.ForecastOptimizer as FO
 
 # ------------ Import------------ ------------ ------------ ------------
+print("Using polars")
+start_time = time()
 import_file = import_functions.import_file
 demand_imported = import_file("ExampleData/Forecasting_beer.parquet")
 
@@ -31,7 +33,7 @@ values = set(["Date", "demand_quantity"])
 col_names = list(col_names - values)
 
 demand = demand_imported.copy()
-
+demand = demand.rename(columns={"demand_quantity": "d", "Date": "ds"})
 
 # ------------ Cleanse ------------ ------------ ------------ ------------
 
@@ -43,12 +45,13 @@ demand = demand.copy().reset_index()
 ## Fill missing periods
 
 demand = dc.combine_attributes(demand)
-demand.set_index(["Date"], inplace=True)
+demand.set_index(["ds"], inplace=True)
 demand = dc.iterate_combinations(demand)
 # demand = dc.split_column(demand, 'combined', ' // ', col_names)
 # Split demand_aggregated to train and test
 
-
+end_time = time() - start_time
+print(f"Pandas used: {end_time} s ")
 # ------------ Forecast ------------ ------------ ------------ ------------
 models_map = {
     "double exp. smoothing": FFA.double_ex_smoothing,
