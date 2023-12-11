@@ -21,20 +21,27 @@ import Functions.ForecastError as FE
 import Functions.ForecastOptimizer as FO
 
 # ------------ Import------------ ------------ ------------ ------------
-import_file = import_functions.import_file
-print("Using polars")
-start_time = time()
+# import_file = import_functions.import_file
+# print("Using polars")
+# start_time = time()
 # demand_imported = import_file("ExampleData/Forecasting_beer.parquet")
-demand_imported = pl.read_parquet("ExampleData/Forecasting_beer.parquet")
+# demand_imported = pl.read_parquet("ExampleData/Forecasting_beer.parquet")
+demand_imported = pl.read_csv(
+    "ExampleData/Forecasting_beer_subset.csv", separator=";"
+).with_columns(
+    pl.col("Date").str.to_date("%Y-%m-%d"), pl.col("demand_quantity").cast(pl.Float64)
+)  # Missing periods: February 2013 and January 2014 for Fancy Beer IPA 1 pint | Negative Periods: Fancy Beer IPA 500 ml April 2014 | Empty Period: Fancy Beer IPA 500 ml June 2014
 
 # ------------ Take Colnames
-values = set(["Date", "demand_quantity"])
-col_names = list(set(list(demand_imported.columns)) - values)
+# values = set(["Date", "demand_quantity"])
+# col_names = list(set(list(demand_imported.columns)) - values)
+
+
+demand_imported.filter(pl.col("Product Name") == "Fancy Beer IPA 1 pint").sort("Date")
 
 
 # demand = demand_imported.copy()
 df = demand_imported.clone().rename({"demand_quantity": "d", "Date": "ds"})
-
 
 # ------------ Cleanse ------------ ------------ ------------ ------------
 
@@ -45,7 +52,9 @@ df = (
     df.pipe(dc.aggregate_polars)
     .pipe(dc.combine_attributes_polars)
     .set_sorted("ds")
-    .upsample(time_column="ds", every="1mo", by="ticker")
+    .upsample(time_column="ds", every="1mo", by="ticker", maintain_order=True)
+    .with_columns(pl.col("ticker").forward_fill())
+    .with_columns(pl.col("d").fill_null(0))  # Fill up missing values with 0
 )
 
 df_pd = (
@@ -56,8 +65,8 @@ df_pd = (
 
 # demand = dc.split_column(demand, 'combined', ' // ', col_names)
 # Split demand_aggregated to train and test
-end_time = time() - start_time
-print(f"Polars used: {end_time} s ")
+# end_time = time() - start_time
+# print(f"Polars used: {end_time} s ")
 
 # ------------ Forecast ------------ ------------ ------------ ------------
 models_map = {
