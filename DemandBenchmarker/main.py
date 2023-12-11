@@ -1,25 +1,3 @@
-import numpy as np
-import pandas as pd
-
-import polars as pl
-
-import pyarrow as pa  # pyarrow to use parquet files
-import pyarrow.parquet as pq
-
-# from prophet import Prophet
-from time import time
-
-# import matplotlib.pyplot as plt
-
-# import statsmodels.api as sm
-
-import Functions.ImportFunctions as import_functions
-import Functions.ExportResults as export_functions
-import Functions.DemandCleansing as dc
-import Functions.ForecastAlgorithms as FFA
-import Functions.ForecastError as FE
-import Functions.ForecastOptimizer as FO
-
 # ------------ Import------------ ------------ ------------ ------------
 # import_file = import_functions.import_file
 # print("Using polars")
@@ -27,7 +5,7 @@ import Functions.ForecastOptimizer as FO
 # demand_imported = import_file("ExampleData/Forecasting_beer.parquet")
 # demand_imported = pl.read_parquet("ExampleData/Forecasting_beer.parquet")
 demand_imported = pl.read_csv(
-    "ExampleData/Forecasting_beer_subset.csv", separator=";"
+    "DemandBenchmarker/ExampleData/Forecasting_beer_subset.csv", separator=";"
 ).with_columns(
     pl.col("Date").str.to_date("%Y-%m-%d"), pl.col("demand_quantity").cast(pl.Float64)
 )  # Missing periods: February 2013 and January 2014 for Fancy Beer IPA 1 pint | Negative Periods: Fancy Beer IPA 500 ml April 2014 | Empty Period: Fancy Beer IPA 500 ml June 2014
@@ -37,7 +15,7 @@ demand_imported = pl.read_csv(
 # col_names = list(set(list(demand_imported.columns)) - values)
 
 
-demand_imported.filter(pl.col("Product Name") == "Fancy Beer IPA 1 pint").sort("Date")
+# demand_imported.filter(pl.col("Product Name") == "Fancy Beer IPA 1 pint").sort("Date")
 
 
 # demand = demand_imported.copy()
@@ -49,12 +27,20 @@ df = demand_imported.clone().rename({"demand_quantity": "d", "Date": "ds"})
 ## Fill missing periods
 
 df = (
-    df.pipe(dc.aggregate_polars)
-    .pipe(dc.combine_attributes_polars)
+    df.pipe(aggregate_polars)
+    .pipe(combine_attributes_polars)
+    .sort(["ticker", "ds"])
     .set_sorted("ds")
     .upsample(time_column="ds", every="1mo", by="ticker", maintain_order=True)
-    .with_columns(pl.col("ticker").forward_fill())
-    .with_columns(pl.col("d").fill_null(0))  # Fill up missing values with 0
+    .with_columns(
+        [
+            (pl.col("ticker").forward_fill()),
+            (pl.col("d").fill_null(0)),
+        ]
+    )
+    .with_columns(
+        (pl.when(pl.col("d") < 0).then(0).otherwise(pl.col("d")).alias("d"))
+    )  # Fill up missing values with 0
 )
 
 df_pd = (
@@ -70,9 +56,9 @@ df_pd = (
 
 # ------------ Forecast ------------ ------------ ------------ ------------
 models_map = {
-    "double exp. smoothing": FFA.double_ex_smoothing,
-    "simple exp. smoothing": FFA.simple_ex_smoothing,
-    "moving average": FFA.moving_average,
+    "double exp. smoothing": double_ex_smoothing,
+    "simple exp. smoothing": simple_ex_smoothing,
+    "moving average": moving_average,
 }
 
 # Prepare for forecasting
@@ -106,7 +92,7 @@ print("Optimize get optimal parameters for each combination")
 start_time = time()
 optim_ex_post = pd.concat(
     [
-        FO.return_optimal_forecast(
+        return_optimal_forecast(
             train_by_ticker.get_group(ticker), extra_periods=24, measure="MAE_abs"
         )
         for ticker in train_ticker_list
@@ -141,7 +127,7 @@ optim_parameters_dict = pd.concat(
 # ---- Forecast Test using parameters from optimization ----
 
 optim_tests = [
-    FFA.create_forecast(
+    create_forecast(
         test_by_ticker.get_group(ticker),
         models_map[optim_parameters_dict.loc[ticker, "model"]],
         extra_periods=24,
@@ -174,7 +160,7 @@ data_points_df = len(demand)
 print("Run forecast using optimal parameters")
 start_time = time()
 optim = [
-    FFA.create_forecast(
+    create_forecast(
         demand_by_ticker.get_group(ticker),
         models_map[optim_parameters_dict.loc[ticker, "model"]],
         extra_periods=24,

@@ -1,6 +1,3 @@
-import numpy as np
-import pandas as pd
-
 # from statsmodels.tsa.holtwinters import SimpleExpSmoothing, ExponentialSmoothing
 # from sklearn.linear_model import LinearRegression
 

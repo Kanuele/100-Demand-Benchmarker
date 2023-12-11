@@ -1,7 +1,3 @@
-import pandas as pd
-import numpy as np
-
-
 def KPI(d, demand="d", error="e"):
     """Calculates the normalized bias of a forecast.
     Average of errors in df divided by average of demand in df for the same periods as the errors.

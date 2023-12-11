@@ -1,6 +1,3 @@
-import pandas as pd
-
-
 def identify_pattern(data):
     # Calculate the first difference of the data
     diff = data.diff().dropna()
